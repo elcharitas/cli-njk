@@ -1,0 +1,32 @@
+{
+  "name": "njkitty",
+  "version": "0.0.1",
+  "description": "A Nunjucks CLI Wrapper with Extension support",
+  "main": "main.js",
+  "dependencies": {
+
+  },
+  "devDependencies": {},
+  "bin": {
+    "njk": "main.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elcharitas/njkitty.git"
+  },
+  "keywords": [
+    "nunjucks",
+    "cli",
+    "wrapper",
+    "api"
+  ],
+  "author": "Jonathan Irhodia",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/elcharitas/njkitty/issues"
+  },
+  "homepage": "https://github.com/elcharitas/njkitty#readme"
+}
