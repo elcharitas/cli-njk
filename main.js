@@ -90,3 +90,54 @@ nunjucksExtensions.forEach(extension => {
 		throw new Error(`Unknown extension type ${extension}`)
 	}
 })
+
+const render = (/** @type {string[]} */ files) => {
+	for (const file of files) {
+		// No performance benefits in async rendering
+		// https://mozilla.github.io/nunjucks/api.html#asynchronous-support
+		const res = nunjucksEnv.render(file, context)
+
+		let outputFile = file.replace(/\.\w+$/, `.${argv.outExtension}`)
+
+		if (outputDir) {
+			outputFile = resolve(outputDir, outputFile)
+			mkdirp.sync(dirname(outputFile))
+		}
+
+		console.log(chalk.blue('Rendering: ' + file))
+		writeFileSync(outputFile, res)
+	}
+}
+
+/** @type {glob.IOptions} */
+const globOptions = { strict: true, cwd: inputDir, ignore: '**/_*.*', nonull: true }
+
+// Render the files given a glob pattern (except the ones starting with "_")
+glob(argv._[0], globOptions, (err, files) => {
+	if (err) return console.error(chalk.red(err))
+	render(files)
+})
+
+// Watcher
+if (argv.watch) {
+	const layouts = []
+	const templates = []
+
+	/** @type {chokidar.WatchOptions} */
+	const watchOptions = { persistent: true, cwd: inputDir }
+	const watcher = chokidar.watch(argv._[0], watchOptions)
+
+	watcher.on('ready', () => console.log(chalk.gray('Watching templates...')))
+
+	// Sort files to not render partials/layouts
+	watcher.on('add', (file) => {
+		if (basename(file).indexOf('_') === 0) layouts.push(file)
+		else templates.push(file)
+	})
+
+	// if the file is a layout/partial, render all other files instead
+	watcher.on('change', (file) => {
+		if (layouts.indexOf(file) > -1) render(templates)
+		else render([file])
+	})
+}
