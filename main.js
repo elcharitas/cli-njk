@@ -62,3 +62,31 @@ const { argv } = require('yargs')
 
 const inputDir = resolve(process.cwd(), argv.path) || ''
 const outputDir = argv.outDir || ''
+
+/** @type {nunjucks.ConfigureOptions} */
+const nunjucksOptions = argv.options
+	? JSON.parse(readFileSync(argv.options, 'utf8'))
+	: { trimBlocks: true, lstripBlocks: true, noCache: true, context: {}, extensions: [] }
+
+/** @type string[] */
+const nunjucksExtensions = argv.extensions || nunjucksOptions.extensions || [];
+
+const context = nunjucksOptions.context || {}
+// Expose environment variables to render context
+context.env = process.env
+
+const nunjucksEnv = nunjucks.configure(inputDir, nunjucksOptions)
+
+//register extensions and extension collection
+nunjucksExtensions.forEach(extension => {
+	var required = require(extension)
+	if(typeof required === "function") {
+		nunjucksEnv.addExtension(extension, new required(nunjucksEnv));
+	} else if(typeof required === "object"){
+		for(var sub in required) {
+			nunjucksEnv.addExtension(sub, new required[sub](nunjucksEnv));
+		}
+	} else {
+		throw new Error(`Unknown extension type ${extension}`)
+	}
+})
