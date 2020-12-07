@@ -1,32 +1,40 @@
 {
-  "name": "njkitty",
-  "version": "0.0.1",
-  "description": "A Nunjucks CLI Wrapper with Extension support",
+  "name": "cli-njk",
+  "version": "1.0.0",
+  "description": "Simple Nunjucks CLI Wrapper and templates watcher with Extension support, to generate precompiled template files or static HTML files",
   "main": "main.js",
+  "bundleDependencies": false,
   "dependencies": {
-
+    "chalk": "^2.4.2",
+    "chokidar": "^3.0.1",
+    "glob": "^7.0.3",
+    "mkdirp": "^0.5.1",
+    "nunjucks": "^3.2.0",
+    "yargs": "^13.2.4"
   },
-  "devDependencies": {},
   "bin": {
     "njk": "main.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node main.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/elcharitas/njkitty.git"
+    "url": "git+https://github.com/elcharitas/cli-njk.git"
   },
   "keywords": [
     "nunjucks",
     "cli",
     "wrapper",
-    "api"
+    "watch",
+    "render",
+    "templates",
+    "precompile"
   ],
   "author": "Jonathan Irhodia",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/elcharitas/njkitty/issues"
+    "url": "https://github.com/elcharitas/cli-njk/issues"
   },
-  "homepage": "https://github.com/elcharitas/njkitty#readme"
+  "homepage": "https://github.com/elcharitas/cli-njk#readme"
 }

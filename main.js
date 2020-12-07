@@ -9,48 +9,56 @@ const mkdirp = require('mkdirp')
 const chalk = require('chalk').default
 
 const { argv } = require('yargs')
-	.usage('Usage: njk <file|glob> [options]')
-	.example('njk foo.njk data.json', 'Compiles foo.njk to foo.html')
-	.example('nunjucks *.njk -w -p src -o dist', 'Watch .njk files in ./src, compile them to ./dist')
-	.demandCommand(1, 'You must provide at least a file/glob path')
-	.epilogue('For more information on Nunjucks: https://mozilla.github.io/nunjucks/')
+	.usage(`${chalk.green("Usage")}: njk <file|glob> [options]`)
+	.example('njk foo.njk', 'Compiles foo.njk to foo.html')
+	.example('njk *.njk -r -w -p src -o dist', 'Watch .njk files in ./src, compile them to ./dist')
+	.demandCommand(1, chalk.red('You must provide at least a file/glob path'))
+	.epilogue(`For more information on CLI Nunjucks: ${chalk.blue("https://github.com/elcharitas/cli-njk")}\nFor more information on Nunjucks: ${chalk.blue("https://mozilla.github.io/nunjucks/")}`)
 	.help()
 	.alias('help', 'h')
 	.alias('help', '?')
 	.locale('en')
-	.version("0.0.1")
+	.version('1.0.0')
 	.option('path', {
 		alias: 'p',
 		string: true,
 		requiresArg: true,
 		default: '.',
 		nargs: 1,
-		describe: 'Path where templates live',
+		describe: 'The Path where templates live',
 	})
 	.option('outDir', {
 		alias: ['out', 'D'],
 		string: true,
 		requiresArg: true,
+		default: '.',
 		nargs: 1,
-		describe: 'Output folder',
+		describe: 'The path to output compiled templates',
+	})
+	.option('outFile', {
+		string: true,
+		describe: 'The path to file for precompiled templates',
 	})
 	.option('watch', {
 		alias: 'w',
 		boolean: true,
 		describe: 'Watch files change, except files starting by "_"',
 	})
-	.option('outExtension', {
+	.option('render', {
+		alias: 'r',
+		boolean: true,
+		describe: 'Whether or not to render files or precompile them, default: false',
+	})
+	.option('extension', {
 		alias: 'e',
 		string: true,
-		requiresArg: true,
-		default: 'html',
 		describe: 'Extension of the rendered files',
 	})
 	.option('extensions', {
 		alias: 'E',
 		array: true,
 		default: [],
-		describe: 'Array of Extensions'
+		describe: 'Set of Extensions to use'
 	})
 	.option('options', {
 		alias: 'O',
@@ -58,54 +66,93 @@ const { argv } = require('yargs')
 		requiresArg: true,
 		nargs: 1,
 		describe: 'Nunjucks options file',
-	})
-
-const inputDir = resolve(process.cwd(), argv.path) || ''
-const outputDir = argv.outDir || ''
+	});
 
 /** @type {nunjucks.ConfigureOptions} */
 const nunjucksOptions = argv.options
 	? JSON.parse(readFileSync(argv.options, 'utf8'))
-	: { trimBlocks: true, lstripBlocks: true, noCache: true, context: {}, extensions: [] }
+	: { config: { trimBlocks: true, lstripBlocks: true, noCache: true }, compiler: { context: {}, extensions: [] } }
+
+/** @type {string} */
+const inputDir = resolve(process.cwd(), nunjucksOptions?.compiler?.inputDir || argv.path) || '';
+/** @type {string} */
+const outputDir = nunjucksOptions?.compiler?.outDir || argv.outDir || '';
+/** @type {string} */
+const outFile = nunjucksOptions?.compiler?.outFile || argv.outFile || ''
 
 /** @type string[] */
-const nunjucksExtensions = argv.extensions || nunjucksOptions.extensions || [];
+const nunjucksExtensions = nunjucksOptions?.compiler?.extensions || argv.extensions || [];
 
-const context = nunjucksOptions.context || {}
+/** @type {object} */
+const context = nunjucksOptions?.compiler?.context || {}
 // Expose environment variables to render context
 context.env = process.env
 
+/** @type {nunjucks.Environment} */
 const nunjucksEnv = nunjucks.configure(inputDir, nunjucksOptions)
 
 //register extensions and extension collection
 nunjucksExtensions.forEach(extension => {
+	if (extension.indexOf('./') === 0 || extension.indexOf('../') === 0) {
+		extension = resolve(inputDir, extension)
+	}
 	var required = require(extension)
-	if(typeof required === "function") {
+	if (typeof required === "function") {
 		nunjucksEnv.addExtension(extension, new required(nunjucksEnv));
-	} else if(typeof required === "object"){
-		for(var sub in required) {
+	} else if (typeof required === "object") {
+		for (var sub in required) {
 			nunjucksEnv.addExtension(sub, new required[sub](nunjucksEnv));
 		}
 	} else {
 		throw new Error(`Unknown extension type ${extension}`)
 	}
-})
+});
 
 const render = (/** @type {string[]} */ files) => {
+	/** @type {string} */
+	let outputFile;
+
+	if(outFile && argv.render) {
+		throw new Error("Use --outFile only for precompiling templates")
+	}
+
+	if(outFile) {
+		outputFile = outFile;
+		writeFileSync(outputFile, "");
+	}
+
 	for (const file of files) {
-		// No performance benefits in async rendering
-		// https://mozilla.github.io/nunjucks/api.html#asynchronous-support
-		const res = nunjucksEnv.render(file, context)
 
-		let outputFile = file.replace(/\.\w+$/, `.${argv.outExtension}`)
+		if(argv.render) {
+			// No performance benefits in async rendering
+			// https://mozilla.github.io/nunjucks/api.html#asynchronous-support
+			const res = nunjucksEnv.render(file, context)
 
-		if (outputDir) {
-			outputFile = resolve(outputDir, outputFile)
-			mkdirp.sync(dirname(outputFile))
+			outputFile = file.replace(/\.\w+$/, `.${argv.extension || "html"}`)
+	
+			if (outputDir && argv.render) {
+				outputFile = resolve(outputDir, outputFile)
+				mkdirp.sync(dirname(outputFile))
+			}
+		
+			console.log(chalk.blue('Rendering: ' + file))
+			writeFileSync(outputFile, res)
+		} else {
+			outputFile = outputFile || file.replace(/\.\w+$/, `.${argv.extension || "js"}`)
+			console.log(chalk.blue('Precompiling: ' + file))
+			let res = nunjucks.precompile(resolve(inputDir, file), {
+				name: file,
+				force: true,
+				env: nunjucksEnv,
+			})
+
+			//append previous content
+			if(outFile) {
+				res += readFileSync(outputFile);
+			}
+
+			writeFileSync(outputFile, res);
 		}
-
-		console.log(chalk.blue('Rendering: ' + file))
-		writeFileSync(outputFile, res)
 	}
 }
 
@@ -118,8 +165,8 @@ glob(argv._[0], globOptions, (err, files) => {
 	render(files)
 })
 
-// Watcher
-if (argv.watch) {
+// Watch files for rendering
+if (argv.watch && argv.render) {
 	const layouts = []
 	const templates = []
 
