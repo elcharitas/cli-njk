@@ -19,8 +19,8 @@ const { argv } = require('yargs')
 	.alias('help', '?')
 	.locale('en')
 	.version('1.0.0')
-	.option('path', {
-		alias: 'p',
+	.option('inputDir', {
+		alias: ['path', 'p'],
 		string: true,
 		requiresArg: true,
 		default: '.',
@@ -31,7 +31,7 @@ const { argv } = require('yargs')
 		alias: ['out', 'D'],
 		string: true,
 		requiresArg: true,
-		default: '.',
+		default: './',
 		nargs: 1,
 		describe: 'The path to output compiled templates',
 	})
@@ -68,20 +68,25 @@ const { argv } = require('yargs')
 		describe: 'Nunjucks options file',
 	});
 
+/** @type {string} */
+const baseDir = resolve(argv.options && (optionsFile = readFileSync(argv.options, 'utf8')) ? argv.options.replace(/\/.+$/, "/"): process.cwd(), argv.path)
+
 /** @type {nunjucks.ConfigureOptions} */
-const nunjucksOptions = argv.options
-	? JSON.parse(readFileSync(argv.options, 'utf8'))
+const nunjucksOptions = optionsFile
+	? JSON.parse(optionsFile)
 	: { config: { trimBlocks: true, lstripBlocks: true, noCache: true }, compiler: { context: {}, extensions: [] } }
 
 /** @type {string} */
-const inputDir = resolve(process.cwd(), nunjucksOptions?.compiler?.inputDir || argv.path) || '';
+const inputDir = resolve(baseDir, nunjucksOptions?.compiler?.inputDir || argv.path || '');
 /** @type {string} */
-const outputDir = nunjucksOptions?.compiler?.outDir || argv.outDir || '';
+const outputDir = resolve(baseDir, nunjucksOptions?.compiler?.outDir || argv.outDir || '');
 /** @type {string} */
-const outFile = nunjucksOptions?.compiler?.outFile || argv.outFile || ''
+const outFile = resolve(baseDir, nunjucksOptions?.compiler?.outFile || argv.outFile || '')
 
 /** @type string[] */
 const nunjucksExtensions = nunjucksOptions?.compiler?.extensions || argv.extensions || [];
+/** @type boolean */
+const renderTpl = nunjucksOptions?.compiler?.render || argv.render;
 
 /** @type {object} */
 const context = nunjucksOptions?.compiler?.context || {}
@@ -94,7 +99,7 @@ const nunjucksEnv = nunjucks.configure(inputDir, nunjucksOptions)
 //register extensions and extension collection
 nunjucksExtensions.forEach(extension => {
 	if (extension.indexOf('./') === 0 || extension.indexOf('../') === 0) {
-		extension = resolve(inputDir, extension)
+		extension = resolve(baseDir, extension)
 	}
 	var required = require(extension)
 	if (typeof required === "function") {
@@ -112,25 +117,25 @@ const render = (/** @type {string[]} */ files) => {
 	/** @type {string} */
 	let outputFile;
 
-	if(outFile && argv.render) {
-		throw new Error("Use --outFile only for precompiling templates")
+	if(outFile !== baseDir && renderTpl) {
+		return console.log(chalk.red("Use --outFile only for precompiling templates"))
 	}
 
-	if(outFile) {
+	if (outFile !== baseDir) {
 		outputFile = outFile;
 		writeFileSync(outputFile, "");
 	}
 
 	for (const file of files) {
 
-		if(argv.render) {
+		if(renderTpl) {
 			// No performance benefits in async rendering
 			// https://mozilla.github.io/nunjucks/api.html#asynchronous-support
 			const res = nunjucksEnv.render(file, context)
 
 			outputFile = file.replace(/\.\w+$/, `.${argv.extension || "html"}`)
 	
-			if (outputDir && argv.render) {
+			if (outputDir && renderTpl) {
 				outputFile = resolve(outputDir, outputFile)
 				mkdirp.sync(dirname(outputFile))
 			}
@@ -138,7 +143,7 @@ const render = (/** @type {string[]} */ files) => {
 			console.log(chalk.blue('Rendering: ' + file))
 			writeFileSync(outputFile, res)
 		} else {
-			outputFile = outputFile || file.replace(/\.\w+$/, `.${argv.extension || "js"}`)
+			outputFile = outputFile || resolve(outputDir, file.replace(/\.\w+$/, `.${argv.extension || "js"}`))
 			console.log(chalk.blue('Precompiling: ' + file))
 			let res = nunjucks.precompile(resolve(inputDir, file), {
 				name: file,
@@ -147,7 +152,7 @@ const render = (/** @type {string[]} */ files) => {
 			})
 
 			//append previous content
-			if(outFile) {
+			if(outFile !== baseDir) {
 				res += readFileSync(outputFile);
 			}
 
@@ -157,7 +162,7 @@ const render = (/** @type {string[]} */ files) => {
 }
 
 /** @type {glob.IOptions} */
-const globOptions = { strict: true, cwd: inputDir, ignore: '**/_*.*', nonull: true }
+const globOptions = { strict: true, cwd: inputDir, ignore: '_*', nonull: true }
 
 // Render the files given a glob pattern (except the ones starting with "_")
 glob(argv._[0], globOptions, (err, files) => {
@@ -166,7 +171,7 @@ glob(argv._[0], globOptions, (err, files) => {
 })
 
 // Watch files for rendering
-if (argv.watch && argv.render) {
+if (argv.watch && renderTpl) {
 	const layouts = []
 	const templates = []
 
