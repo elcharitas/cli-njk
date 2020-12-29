@@ -23,7 +23,7 @@ const { argv } = require('yargs')
 		alias: ['path', 'p'],
 		string: true,
 		requiresArg: true,
-		default: '.',
+		default: './',
 		nargs: 1,
 		describe: 'The Path where templates live',
 	})
@@ -69,7 +69,7 @@ const { argv } = require('yargs')
 	});
 
 /** @type {string} */
-const baseDir = resolve(argv.options && (optionsFile = readFileSync(argv.options, 'utf8')) ? argv.options.replace(/\/.+$/, "/"): process.cwd(), argv.path)
+const baseDir = resolve(argv.options && (optionsFile = readFileSync(argv.options, 'utf8')) ? argv.options.replace(/\/.+$/, "/"): process.cwd(), argv.inputDir)
 
 /** @type {nunjucks.ConfigureOptions} */
 const nunjucksOptions = optionsFile

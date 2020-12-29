@@ -1,6 +1,6 @@
 {
   "name": "cli-njk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Simple Nunjucks CLI Wrapper and templates watcher with Extension support, to generate precompiled template files or static HTML files",
   "main": "main.js",
   "bundleDependencies": false,
@@ -13,7 +13,7 @@
     "yargs": "^13.2.4"
   },
   "bin": {
-    "njk": "main.js"
+    "njk": "./main.js"
   },
   "scripts": {
     "test": "node main.js"

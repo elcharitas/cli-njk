@@ -193,9 +193,9 @@ $ njk foo.njk -p src -o dist -O njk.json
 Compiles `src/foo.njk` to `dist/foo.html`, with `njk.json` as njk environment options.
 
 ```bash
-$ njk *.njk njk.json -w -p src
+$ njk *.njk njk.json -w -r -p src
 ```
 
-Compiles all `.njk` files (except ones starting with `_`) in the `src` folder to the current working directory, with `njk.json` as metadata, and keeps running in the background for files changes.
+Compiles and renders all `.njk` files -- except ones starting with `_` -- in the `src` folder to the current working directory, with `njk.json` as metadata, and keeps running in the background for files changes.
 
 [Nunjucks CLI]: http://github.com/jeremyben/nunjucks-cli
